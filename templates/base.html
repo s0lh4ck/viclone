@@ -10,6 +10,11 @@
   <header>
     <h1><a href="{{ url_for('index') }}">ViClone</a></h1>
     <p class="subtitle">Internal voice cloning tool for authorized vishing exercises</p>
+    {% if session.get("authenticated") %}
+      <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+        <button type="submit" class="link-button">Sign out</button>
+      </form>
+    {% endif %}
   </header>
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sign in - ViClone{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Sign in</h2>
+  <form method="post">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>Password
+      <input type="password" name="password" required autofocus>
+    </label>
+    <button type="submit">Sign in</button>
+  </form>
+</section>
+{% endblock %}

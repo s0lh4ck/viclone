@@ -19,12 +19,19 @@ def _run_ffmpeg(args):
     )
     if result.returncode != 0:
         raise AudioProcessingError(
-            f"ffmpeg falló: {result.stderr.decode(errors='ignore')[-500:]}"
+            f"ffmpeg failed: {result.stderr.decode(errors='ignore')[-500:]}"
         )
 
 
+def is_allowed_filename(filename):
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[-1].lower() in config.ALLOWED_REFERENCE_EXTENSIONS
+    )
+
+
 def convert_to_wav(input_path, output_path, sample_rate=config.SAMPLE_RATE):
-    """Extrae/convierte cualquier audio o vídeo de entrada a WAV mono PCM16."""
+    """Extract/convert any audio or video input into mono PCM16 WAV."""
     _run_ffmpeg([
         "-i", input_path,
         "-vn",
@@ -36,7 +43,7 @@ def convert_to_wav(input_path, output_path, sample_rate=config.SAMPLE_RATE):
 
 
 def clean_reference_audio(wav_path):
-    """Normaliza volumen y recorta silencios largos de una muestra de referencia."""
+    """Normalize volume and trim long silences from a reference sample."""
     audio = AudioSegment.from_wav(wav_path)
     audio = effects.normalize(audio)
 
@@ -57,7 +64,7 @@ def clean_reference_audio(wav_path):
 
 
 def process_reference_upload(raw_path, case_storage_dir, original_filename):
-    """Convierte y limpia un archivo subido (audio o vídeo), devuelve el nombre del WAV resultante."""
+    """Convert and clean an uploaded file (audio or video), return the resulting WAV filename."""
     os.makedirs(case_storage_dir, exist_ok=True)
     wav_name = f"{uuid.uuid4().hex}.wav"
     wav_path = os.path.join(case_storage_dir, wav_name)

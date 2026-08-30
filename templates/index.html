@@ -29,6 +29,7 @@
         <li>
           <a href="{{ url_for('case_detail', case_id=case['id']) }}">{{ case['name'] }}</a>
           — {{ case['client'] }} / {{ case['target_person'] }}
+          {% if case['closed_at'] %}<span class="badge badge-not_trained">closed</span>{% endif %}
         </li>
       {% endfor %}
     </ul>

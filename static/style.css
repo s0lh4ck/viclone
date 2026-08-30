@@ -154,3 +154,25 @@ button.secondary {
   border: 1px solid var(--border);
   color: var(--text);
 }
+
+.logout-form {
+  display: inline;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  text-decoration: underline;
+  padding: 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.danger-zone {
+  border-color: #e3b0b0;
+}
+
+button.danger {
+  background: #b3261e;
+}

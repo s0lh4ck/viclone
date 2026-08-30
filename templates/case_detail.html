@@ -10,8 +10,12 @@
     <dt>Target person</dt><dd>{{ case['target_person'] }}</dd>
     <dt>Authorization</dt><dd>{{ case['authorization_ref'] }}</dd>
   </dl>
+  {% if case['closed_at'] %}
+    <p class="flash success">This case was closed on {{ case['closed_at'] }}. All stored voice material has been deleted.</p>
+  {% endif %}
 </section>
 
+{% if not case['closed_at'] %}
 <section class="card">
   <h2>Reference voice material</h2>
   <form method="post" action="{{ url_for('upload_reference', case_id=case['id']) }}"
@@ -56,6 +60,7 @@
     <button type="submit">Generate</button>
   </form>
 </section>
+{% endif %}
 
 <section class="card">
   <h2>Generated audio</h2>
@@ -75,6 +80,7 @@
   {% endif %}
 </section>
 
+{% if not case['closed_at'] %}
 <section class="card" id="voice-model-card" data-case-id="{{ case['id'] }}">
   <h2>Voice model (for live calls)</h2>
   <p>
@@ -95,6 +101,16 @@
 
 <section class="card">
   <h2>Live call voice conversion</h2>
+
+  {% if not live_engine_implemented %}
+    <p class="flash error">
+      This build's conversion engine is a PASSTHROUGH stub — starting it routes your
+      microphone straight through with no voice conversion applied. Do not use it in a
+      real exercise until a real engine has been wired into <code>rvc_bridge/realtime.py</code>
+      and <code>VICLONE_LIVE_ENGINE_IMPLEMENTED=true</code> is set. See README.
+    </p>
+  {% endif %}
+
   <p class="hint">
     Converts your live microphone speech into the trained target voice in real time, and
     sends it to an output device. Route that output device into a virtual audio cable
@@ -120,6 +136,24 @@
     <p id="live-error" class="flash error" hidden></p>
   </div>
 </section>
+
+<section class="card danger-zone">
+  <h2>Close case</h2>
+  <p class="hint">
+    Stops any running live conversion and permanently deletes all reference audio,
+    trained voice model, and generated audio for this case. The case record itself is
+    kept (name, client, authorization reference) as an audit trail; only the voice
+    material is removed. This cannot be undone.
+  </p>
+  <form method="post" action="{{ url_for('close_case', case_id=case['id']) }}"
+        onsubmit="return confirm('Permanently delete all voice material for this case?');">
+    <label>Type the case name (<strong>{{ case['name'] }}</strong>) to confirm
+      <input type="text" name="confirm_name" required>
+    </label>
+    <button type="submit" class="danger">Close case &amp; delete voice material</button>
+  </form>
+</section>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

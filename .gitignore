@@ -4,7 +4,10 @@ __pycache__/
 venv/
 storage/
 data/
+logs/
 *.db
 .DS_Store
 *.wav
 *.mp3
+.env
+.pytest_cache/

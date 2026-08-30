@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS cases (
     client TEXT NOT NULL,
     target_person TEXT NOT NULL,
     authorization_ref TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    closed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS reference_files (
@@ -45,7 +46,15 @@ def get_conn():
         conn.close()
 
 
+def _ensure_columns(conn):
+    """Add columns introduced after the initial release to pre-existing databases."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(cases)")}
+    if "closed_at" not in existing:
+        conn.execute("ALTER TABLE cases ADD COLUMN closed_at TEXT")
+
+
 def init_db():
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _ensure_columns(conn)
