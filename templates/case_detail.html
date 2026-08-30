@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ case['name'] }} - ViClone{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">&larr; Volver a casos</a></p>
+
+<section class="card">
+  <h2>{{ case['name'] }}</h2>
+  <dl>
+    <dt>Cliente</dt><dd>{{ case['client'] }}</dd>
+    <dt>Persona objetivo</dt><dd>{{ case['target_person'] }}</dd>
+    <dt>Autorización</dt><dd>{{ case['authorization_ref'] }}</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Material de voz de referencia</h2>
+  <form method="post" action="{{ url_for('upload_reference', case_id=case['id']) }}"
+        enctype="multipart/form-data">
+    <label>Archivo de audio o vídeo (mp3, wav, mp4, mov, ...)
+      <input type="file" name="reference_file" required>
+    </label>
+    <button type="submit">Subir y procesar</button>
+  </form>
+
+  {% if references %}
+    <ul class="file-list">
+      {% for ref in references %}
+        <li>
+          <span>{{ ref['filename'] }}</span>
+          <audio controls
+                 src="{{ url_for('serve_storage', case_id=case['id'], relative_path=ref['relative_path']) }}">
+          </audio>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>Todavía no hay muestras de voz subidas.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Generar audio con la voz clonada</h2>
+  <form method="post" action="{{ url_for('generate_speech', case_id=case['id']) }}">
+    <label>Texto a sintetizar
+      <textarea name="text" rows="4" required></textarea>
+    </label>
+    <label>Idioma
+      <select name="language">
+        <option value="es" selected>Español</option>
+        <option value="en">Inglés</option>
+        <option value="pt">Portugués</option>
+        <option value="fr">Francés</option>
+        <option value="de">Alemán</option>
+      </select>
+    </label>
+    <button type="submit">Generar</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Audios generados</h2>
+  {% if outputs %}
+    <ul class="file-list">
+      {% for out in outputs %}
+        <li>
+          <p>{{ out['text'] }}</p>
+          <audio controls
+                 src="{{ url_for('serve_storage', case_id=case['id'], relative_path=out['relative_path']) }}">
+          </audio>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>Todavía no hay audios generados.</p>
+  {% endif %}
+</section>
+{% endblock %}
