@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{{ case['name'] }} - ViClone{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">&larr; Back to cases</a></p>
+
+<section class="card">
+  <h2>{{ case['name'] }}</h2>
+  <dl>
+    <dt>Client</dt><dd>{{ case['client'] }}</dd>
+    <dt>Target person</dt><dd>{{ case['target_person'] }}</dd>
+    <dt>Authorization</dt><dd>{{ case['authorization_ref'] }}</dd>
+  </dl>
+  {% if case['closed_at'] %}
+    <p class="flash success">This case was closed on {{ case['closed_at'] }}. All stored voice material has been deleted.</p>
+  {% endif %}
+</section>
+
+{% if not case['closed_at'] %}
+<section class="card">
+  <h2>Reference voice material</h2>
+  <form method="post" action="{{ url_for('upload_reference', case_id=case['id']) }}"
+        enctype="multipart/form-data">
+    <label>Audio or video file (mp3, wav, mp4, mov, ...)
+      <input type="file" name="reference_file" required>
+    </label>
+    <button type="submit">Upload and process</button>
+  </form>
+
+  {% if references %}
+    <ul class="file-list">
+      {% for ref in references %}
+        <li>
+          <span>{{ ref['filename'] }}</span>
+          <audio controls
+                 src="{{ url_for('serve_storage', case_id=case['id'], relative_path=ref['relative_path']) }}">
+          </audio>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No voice samples uploaded yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Generate audio from text (scripted lines)</h2>
+  <form method="post" action="{{ url_for('generate_speech', case_id=case['id']) }}">
+    <label>Text to synthesize
+      <textarea name="text" rows="4" required></textarea>
+    </label>
+    <label>Language
+      <select name="language">
+        <option value="es" selected>Spanish</option>
+        <option value="en">English</option>
+        <option value="pt">Portuguese</option>
+        <option value="fr">French</option>
+        <option value="de">German</option>
+      </select>
+    </label>
+    <button type="submit">Generate</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Generated audio</h2>
+  {% if outputs %}
+    <ul class="file-list">
+      {% for out in outputs %}
+        <li>
+          <p>{{ out['text'] }}</p>
+          <audio controls
+                 src="{{ url_for('serve_storage', case_id=case['id'], relative_path=out['relative_path']) }}">
+          </audio>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No audio generated yet.</p>
+  {% endif %}
+</section>
+
+{% if not case['closed_at'] %}
+<section class="card" id="voice-model-card" data-case-id="{{ case['id'] }}">
+  <h2>Voice model (for live calls)</h2>
+  <p>
+    Status:
+    <span id="model-status" class="badge badge-{{ model_status }}">{{ model_status }}</span>
+  </p>
+  <form id="train-form" method="post" action="{{ url_for('train_voice_model', case_id=case['id']) }}">
+    <button type="submit" {% if not references %}disabled{% endif %}>Train voice model</button>
+  </form>
+  {% if not references %}
+    <p class="hint">Upload at least one reference voice sample first.</p>
+  {% endif %}
+  <p class="hint">
+    <a href="{{ url_for('serve_storage', case_id=case['id'], relative_path='voice_model/train.log') }}"
+       target="_blank" rel="noopener">View training log</a>
+  </p>
+</section>
+
+<section class="card">
+  <h2>Live call voice conversion</h2>
+
+  {% if not live_engine_implemented %}
+    <p class="flash error">
+      This build's conversion engine is a PASSTHROUGH stub — starting it routes your
+      microphone straight through with no voice conversion applied. Do not use it in a
+      real exercise until a real engine has been wired into <code>rvc_bridge/realtime.py</code>
+      and <code>VICLONE_LIVE_ENGINE_IMPLEMENTED=true</code> is set. See README.
+    </p>
+  {% endif %}
+
+  <p class="hint">
+    Converts your live microphone speech into the trained target voice in real time, and
+    sends it to an output device. Route that output device into a virtual audio cable
+    (e.g. VB-CABLE on Windows) and set MicroSIP's microphone to that cable's output — MicroSIP
+    itself needs no changes, it just uses the virtual cable as its mic.
+  </p>
+
+  <div class="live-controls">
+    <label>Input device (your microphone)
+      <select id="input-device"></select>
+    </label>
+    <label>Output device (virtual cable feeding MicroSIP)
+      <select id="output-device"></select>
+    </label>
+    <label>Pitch shift (semitones)
+      <input type="number" id="pitch" value="0" step="1">
+    </label>
+    <div class="live-buttons">
+      <button id="live-start" type="button">Start live conversion</button>
+      <button id="live-stop" type="button" class="secondary">Stop</button>
+    </div>
+    <p>Status: <span id="live-status">{{ "running" if live_running else "stopped" }}</span></p>
+    <p id="live-error" class="flash error" hidden></p>
+  </div>
+</section>
+
+<section class="card danger-zone">
+  <h2>Close case</h2>
+  <p class="hint">
+    Stops any running live conversion and permanently deletes all reference audio,
+    trained voice model, and generated audio for this case. The case record itself is
+    kept (name, client, authorization reference) as an audit trail; only the voice
+    material is removed. This cannot be undone.
+  </p>
+  <form method="post" action="{{ url_for('close_case', case_id=case['id']) }}"
+        onsubmit="return confirm('Permanently delete all voice material for this case?');">
+    <label>Type the case name (<strong>{{ case['name'] }}</strong>) to confirm
+      <input type="text" name="confirm_name" required>
+    </label>
+    <button type="submit" class="danger">Close case &amp; delete voice material</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+{% endblock %}

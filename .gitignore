@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+storage/
+data/
+logs/
+*.db
+.DS_Store
+*.wav
+*.mp3
+.env
+.pytest_cache/

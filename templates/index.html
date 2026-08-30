@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Cases - ViClone{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>New audit case</h2>
+  <form method="post" action="{{ url_for('create_case') }}">
+    <label>Case name
+      <input type="text" name="name" required>
+    </label>
+    <label>Client
+      <input type="text" name="client" required>
+    </label>
+    <label>Target person (in scope)
+      <input type="text" name="target_person" required>
+    </label>
+    <label>Authorization / contract reference
+      <input type="text" name="authorization_ref" required
+             placeholder="Contract number, scope clause, consent reference...">
+    </label>
+    <button type="submit">Create case</button>
+  </form>
+</section>
+
+<section>
+  <h2>Existing cases</h2>
+  {% if cases %}
+    <ul class="case-list">
+      {% for case in cases %}
+        <li>
+          <a href="{{ url_for('case_detail', case_id=case['id']) }}">{{ case['name'] }}</a>
+          — {{ case['client'] }} / {{ case['target_person'] }}
+          {% if case['closed_at'] %}<span class="badge badge-not_trained">closed</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No cases yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

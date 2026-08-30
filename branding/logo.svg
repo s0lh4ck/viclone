@@ -1,0 +1,10 @@
+<svg width="560" height="160" viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ViClone">
+  <rect x="0" y="5" width="150" height="150" rx="32" fill="#7a4de0"/>
+  <g fill="#ffffff">
+    <rect x="34" y="65" width="14" height="30" rx="7"/>
+    <rect x="58" y="45" width="14" height="70" rx="7"/>
+    <rect x="82" y="28" width="14" height="104" rx="7"/>
+    <rect x="106" y="50" width="14" height="60" rx="7"/>
+  </g>
+  <text x="178" y="108" font-family="-apple-system, 'Segoe UI', Arial, sans-serif" font-size="76" font-weight="700" fill="#1f1f1f">Vi<tspan fill="#7a4de0">Clone</tspan></text>
+</svg>
