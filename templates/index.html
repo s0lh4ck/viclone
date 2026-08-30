@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Casos - ViClone{% endblock %}
+{% block title %}Cases - ViClone{% endblock %}
 {% block content %}
 <section class="card">
-  <h2>Nuevo caso de auditoría</h2>
+  <h2>New audit case</h2>
   <form method="post" action="{{ url_for('create_case') }}">
-    <label>Nombre del caso
+    <label>Case name
       <input type="text" name="name" required>
     </label>
-    <label>Cliente
+    <label>Client
       <input type="text" name="client" required>
     </label>
-    <label>Persona objetivo (dentro del alcance)
+    <label>Target person (in scope)
       <input type="text" name="target_person" required>
     </label>
-    <label>Referencia de autorización / contrato
+    <label>Authorization / contract reference
       <input type="text" name="authorization_ref" required
-             placeholder="Nº de contrato, cláusula de alcance, referencia de consentimiento...">
+             placeholder="Contract number, scope clause, consent reference...">
     </label>
-    <button type="submit">Crear caso</button>
+    <button type="submit">Create case</button>
   </form>
 </section>
 
 <section>
-  <h2>Casos existentes</h2>
+  <h2>Existing cases</h2>
   {% if cases %}
     <ul class="case-list">
       {% for case in cases %}
@@ -33,7 +33,7 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p>Todavía no hay casos.</p>
+    <p>No cases yet.</p>
   {% endif %}
 </section>
 {% endblock %}

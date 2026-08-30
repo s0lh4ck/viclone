@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +9,7 @@
 <body>
   <header>
     <h1><a href="{{ url_for('index') }}">ViClone</a></h1>
-    <p class="subtitle">Herramienta interna de clonación de voz para ejercicios de vishing autorizados</p>
+    <p class="subtitle">Internal voice cloning tool for authorized vishing exercises</p>
   </header>
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -24,7 +24,8 @@
     {% block content %}{% endblock %}
   </main>
   <footer>
-    <p>Usar únicamente con autorización expresa del cliente y consentimiento informado de la persona cuya voz se procesa.</p>
+    <p>Use only with the client's explicit authorization and the informed consent of the person whose voice is processed.</p>
   </footer>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

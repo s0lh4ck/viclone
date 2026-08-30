@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% block title %}{{ case['name'] }} - ViClone{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('index') }}">&larr; Volver a casos</a></p>
+<p><a href="{{ url_for('index') }}">&larr; Back to cases</a></p>
 
 <section class="card">
   <h2>{{ case['name'] }}</h2>
   <dl>
-    <dt>Cliente</dt><dd>{{ case['client'] }}</dd>
-    <dt>Persona objetivo</dt><dd>{{ case['target_person'] }}</dd>
-    <dt>Autorización</dt><dd>{{ case['authorization_ref'] }}</dd>
+    <dt>Client</dt><dd>{{ case['client'] }}</dd>
+    <dt>Target person</dt><dd>{{ case['target_person'] }}</dd>
+    <dt>Authorization</dt><dd>{{ case['authorization_ref'] }}</dd>
   </dl>
 </section>
 
 <section class="card">
-  <h2>Material de voz de referencia</h2>
+  <h2>Reference voice material</h2>
   <form method="post" action="{{ url_for('upload_reference', case_id=case['id']) }}"
         enctype="multipart/form-data">
-    <label>Archivo de audio o vídeo (mp3, wav, mp4, mov, ...)
+    <label>Audio or video file (mp3, wav, mp4, mov, ...)
       <input type="file" name="reference_file" required>
     </label>
-    <button type="submit">Subir y procesar</button>
+    <button type="submit">Upload and process</button>
   </form>
 
   {% if references %}
@@ -34,31 +34,31 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p>Todavía no hay muestras de voz subidas.</p>
+    <p>No voice samples uploaded yet.</p>
   {% endif %}
 </section>
 
 <section class="card">
-  <h2>Generar audio con la voz clonada</h2>
+  <h2>Generate audio from text (scripted lines)</h2>
   <form method="post" action="{{ url_for('generate_speech', case_id=case['id']) }}">
-    <label>Texto a sintetizar
+    <label>Text to synthesize
       <textarea name="text" rows="4" required></textarea>
     </label>
-    <label>Idioma
+    <label>Language
       <select name="language">
-        <option value="es" selected>Español</option>
-        <option value="en">Inglés</option>
-        <option value="pt">Portugués</option>
-        <option value="fr">Francés</option>
-        <option value="de">Alemán</option>
+        <option value="es" selected>Spanish</option>
+        <option value="en">English</option>
+        <option value="pt">Portuguese</option>
+        <option value="fr">French</option>
+        <option value="de">German</option>
       </select>
     </label>
-    <button type="submit">Generar</button>
+    <button type="submit">Generate</button>
   </form>
 </section>
 
 <section class="card">
-  <h2>Audios generados</h2>
+  <h2>Generated audio</h2>
   {% if outputs %}
     <ul class="file-list">
       {% for out in outputs %}
@@ -71,7 +71,57 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p>Todavía no hay audios generados.</p>
+    <p>No audio generated yet.</p>
   {% endif %}
 </section>
+
+<section class="card" id="voice-model-card" data-case-id="{{ case['id'] }}">
+  <h2>Voice model (for live calls)</h2>
+  <p>
+    Status:
+    <span id="model-status" class="badge badge-{{ model_status }}">{{ model_status }}</span>
+  </p>
+  <form id="train-form" method="post" action="{{ url_for('train_voice_model', case_id=case['id']) }}">
+    <button type="submit" {% if not references %}disabled{% endif %}>Train voice model</button>
+  </form>
+  {% if not references %}
+    <p class="hint">Upload at least one reference voice sample first.</p>
+  {% endif %}
+  <p class="hint">
+    <a href="{{ url_for('serve_storage', case_id=case['id'], relative_path='voice_model/train.log') }}"
+       target="_blank" rel="noopener">View training log</a>
+  </p>
+</section>
+
+<section class="card">
+  <h2>Live call voice conversion</h2>
+  <p class="hint">
+    Converts your live microphone speech into the trained target voice in real time, and
+    sends it to an output device. Route that output device into a virtual audio cable
+    (e.g. VB-CABLE on Windows) and set MicroSIP's microphone to that cable's output — MicroSIP
+    itself needs no changes, it just uses the virtual cable as its mic.
+  </p>
+
+  <div class="live-controls">
+    <label>Input device (your microphone)
+      <select id="input-device"></select>
+    </label>
+    <label>Output device (virtual cable feeding MicroSIP)
+      <select id="output-device"></select>
+    </label>
+    <label>Pitch shift (semitones)
+      <input type="number" id="pitch" value="0" step="1">
+    </label>
+    <div class="live-buttons">
+      <button id="live-start" type="button">Start live conversion</button>
+      <button id="live-stop" type="button" class="secondary">Stop</button>
+    </div>
+    <p>Status: <span id="live-status">{{ "running" if live_running else "stopped" }}</span></p>
+    <p id="live-error" class="flash error" hidden></p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
 {% endblock %}

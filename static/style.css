@@ -119,3 +119,38 @@ footer {
   font-size: 0.8rem;
   padding: 1.5rem;
 }
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge-not_trained { background: #eee; color: #555; }
+.badge-training { background: #fff3cd; color: #7a5b00; }
+.badge-ready { background: #e2f3e5; color: #1f5c2b; }
+.badge-failed { background: #fbe1e1; color: #7a1f1f; }
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.live-controls label {
+  margin-bottom: 0.9rem;
+}
+
+.live-buttons {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.5rem 0 1rem;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}

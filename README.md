@@ -1,39 +1,47 @@
 # ViClone
 
-Herramienta interna para equipos de auditoría de seguridad: convierte muestras de voz
-(audio o vídeo) de una persona **dentro del alcance autorizado de un ejercicio de vishing**
-en un modelo de voz clonada, que luego se usa para generar frases sintetizadas para el
-ejercicio.
+Internal tool for security audit teams: turns voice samples (audio or video) of a
+person **within the authorized scope of a vishing exercise** into a cloned voice, used
+either to generate scripted lines (text-to-speech) or, live, as the microphone input of
+a softphone such as MicroSIP for a real-time call.
 
-> **Uso previsto:** únicamente auditorías de ingeniería social contratadas y autorizadas
-> por el cliente, con consentimiento informado y documentado de la persona cuya voz se
-> procesa. La voz es un dato biométrico/personal (RGPD): trata el contenido de `storage/`
-> como material confidencial del cliente y bórralo al cerrar el caso.
+> **Intended use:** contracted, authorized social-engineering audits only, with
+> documented, informed consent from the person whose voice is processed. Voice is
+> biometric/personal data (GDPR): treat everything under `storage/` as confidential
+> client material and delete it once the case is closed.
 
-## Cómo funciona
+## What it does
 
-1. Creas un **caso** por auditoría (cliente, persona objetivo, referencia de autorización).
-2. Subes uno o varios archivos de audio/vídeo de esa persona. La app:
-   - Extrae la pista de audio (si es vídeo) con `ffmpeg`.
-   - Normaliza el volumen y recorta silencios largos con `pydub`.
-3. Escribes el texto del guion de la llamada y el idioma; la app genera un `.wav` con
-   [Coqui XTTS-v2](https://github.com/coqui-ai/TTS), un modelo de clonación de voz
-   *zero-shot* multilingüe (no requiere entrenamiento largo: con unos segundos/minutos
-   de muestra limpia genera voz nueva en esa voz).
-4. El resultado se reproduce y descarga desde la propia interfaz web.
+1. You create a **case** per audit (client, target person, authorization reference —
+   required to create a case at all).
+2. You upload one or more audio/video files of that person. The app:
+   - Extracts the audio track (if it's video) with `ffmpeg`.
+   - Normalizes volume and trims long silences with `pydub`.
+3. **Scripted lines:** type text and a language; the app renders a `.wav` with
+   [Coqui XTTS-v2](https://github.com/coqui-ai/TTS), a zero-shot multilingual voice
+   cloning model (no long training run needed — a clean sample of a few
+   seconds/minutes is enough to synthesize new speech in that voice).
+4. **Live calls:** you train a real-time voice-conversion model from the same
+   reference material, then run live conversion that takes your microphone input,
+   converts it to the target voice, and sends it to an output device you route into
+   MicroSIP (or any other softphone) as its microphone. See
+   "Wiring up the live voice conversion engine" below — this part ships as a working
+   passthrough stub that you connect to a real conversion engine.
 
-No hay integración con la API de Claude: Claude es un modelo de texto y no genera audio.
-Si en el futuro quieres usarlo para redactar o afinar los guiones de la llamada (el texto
-que luego se sintetiza), es una pieza independiente que se puede añadir después.
+There is no Claude API integration: Claude is a text model and does not generate or
+convert audio.
 
-## Requisitos
+## Requirements
 
 - Python 3.10+
-- `ffmpeg` instalado en el sistema (`apt install ffmpeg`, `brew install ffmpeg`, ...)
-- Recomendado: GPU NVIDIA + CUDA para generar audio con rapidez (funciona en CPU, pero
-  la síntesis es bastante más lenta)
+- `ffmpeg` installed on the system (`apt install ffmpeg`, `brew install ffmpeg`, ...)
+- PortAudio for live audio I/O (`apt install portaudio19-dev`, `brew install portaudio`)
+- Recommended: an NVIDIA GPU + CUDA, both for XTTS-v2 synthesis speed and for training a
+  real-time voice model at usable quality/speed
+- A virtual audio cable to feed converted audio into a softphone (e.g.
+  [VB-CABLE](https://vb-audio.com/Cable/) on Windows, where MicroSIP runs)
 
-## Instalación
+## Installation
 
 ```bash
 python -m venv .venv
@@ -41,42 +49,82 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-La primera vez que generes un audio, `TTS` descargará automáticamente los pesos del
-modelo XTTS-v2 (varios GB) y te pedirá aceptar su licencia
-([Coqui Public Model License](https://coqui.ai/cpml/), no comercial salvo licencia de
-Coqui) — revísala antes de usar la herramienta en un contexto de servicio facturado a
-clientes. Si necesitas un modelo con licencia permisiva para uso comercial, se puede
-sustituir en `vclone/voice_engine.py` por alternativas como OpenVoice V2 (MIT).
+The first time you generate scripted audio, `TTS` will download the XTTS-v2 weights
+(several GB) and ask you to accept its license
+([Coqui Public Model License](https://coqui.ai/cpml/), non-commercial unless you hold a
+license from Coqui) — review it before using this tool in a service billed to clients.
+If you need a permissively licensed model for commercial use, swap it in
+`vclone/voice_engine.py` (e.g. OpenVoice V2, MIT licensed).
 
-## Uso
+## Usage
 
 ```bash
 python app.py
 ```
 
-Abre `http://127.0.0.1:5000`.
+Open `http://127.0.0.1:5000`.
 
-1. Crea un caso con el nombre del cliente, la persona objetivo y la referencia de
-   autorización/contrato (campo obligatorio).
-2. Sube el material de voz de referencia (mp3, wav, mp4, mov, ...).
-3. Escribe el texto del guion y genera el audio.
+1. Create a case with the client name, target person, and authorization/contract
+   reference (required field).
+2. Upload reference voice material (mp3, wav, mp4, mov, ...).
+3. For scripted lines: type the script text and generate audio.
+4. For live calls: train a voice model for the case, then start live conversion,
+   pick your microphone as the input device and your virtual cable as the output
+   device, and point MicroSIP's microphone setting at that same virtual cable.
 
-## Estructura
+## Wiring up the live voice conversion engine
+
+Real-time, low-latency, natural-sounding voice conversion is a hard problem on its
+own — the projects that actually do it well (the realtime module of the
+[RVC-WebUI project](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI),
+or [w-okada/voice-changer](https://github.com/w-okada/voice-changer)) are large, tuned
+codebases built specifically for this. Rather than reimplement that from scratch,
+ViClone ships a thin, replaceable adapter layer:
+
+- `rvc_bridge/train.py` — called by the "Train voice model" button with
+  `--dataset <reference_dir> --exp-name <name> --out-dir <dir> --epochs <n>`. It must
+  produce `<out-dir>/model.pth` (and `model.index` if your engine uses one).
+- `rvc_bridge/realtime.py` — called by "Start live conversion" with
+  `--model --index --input-device --output-device --pitch`. It runs until stopped.
+
+Both ship as **stubs**: `train.py` fails loudly telling you it isn't wired up yet, and
+`realtime.py` runs a working **passthrough** (mic straight to output, no conversion) so
+you can validate the device routing into MicroSIP before any model exists. To make it
+real:
+
+1. Install a real-time-capable RVC toolkit checkout of your choice.
+2. In `rvc_bridge/train.py`, replace the stub with calls into that toolkit's
+   preprocessing/feature-extraction/training pipeline, ending with the two output files
+   above.
+3. In `rvc_bridge/realtime.py`, replace the passthrough line in the audio callback with
+   a call into that toolkit's real-time inference function.
+
+`vclone/rvc_engine.py` only manages the subprocess lifecycle (start/stop/status) and
+audio device listing (`sounddevice`) — it does not care which toolkit you plug in, as
+long as the contract above is met.
+
+## Structure
 
 ```
-app.py                  # rutas Flask
-vclone/config.py        # rutas y parámetros
-vclone/db.py            # esquema SQLite (casos, referencias, audios generados)
-vclone/audio.py         # extracción de audio y limpieza de silencios
-vclone/voice_engine.py  # wrapper de Coqui XTTS-v2
-templates/, static/     # interfaz web
-storage/, data/         # datos por caso (ignorados por git)
+app.py                    # Flask routes
+vclone/config.py          # paths and parameters
+vclone/db.py               # SQLite schema (cases, references, generated outputs)
+vclone/audio.py            # audio extraction and silence cleanup
+vclone/voice_engine.py     # Coqui XTTS-v2 wrapper (scripted lines)
+vclone/rvc_engine.py       # orchestration for training / live conversion subprocesses
+rvc_bridge/train.py        # adapter stub: training entry point
+rvc_bridge/realtime.py     # adapter stub: real-time conversion entry point (passthrough)
+templates/, static/        # web UI
+storage/, data/            # per-case data (git-ignored)
 ```
 
-## Seguridad y buenas prácticas
+## Security and good practice
 
-- No subas al repositorio nada de `storage/` ni `data/` (ya están en `.gitignore`):
-  contienen voces y datos personales de personas reales.
-- Guarda junto a cada caso la evidencia de autorización/consentimiento real (contrato,
-  correo firmado, etc.) fuera de este repositorio.
-- Borra el material de voz al cerrar el caso salvo que el contrato exija conservarlo.
+- Never commit anything under `storage/` or `data/` (already in `.gitignore`): it
+  contains real people's voices and personal data.
+- Keep the actual authorization/consent evidence (signed contract, email, etc.)
+  alongside each case, outside this repository.
+- Live calls may be subject to call-recording consent laws that vary by
+  jurisdiction (one-party vs. two-party consent) — check with the client/legal before
+  recording or storing call audio.
+- Delete voice material once a case is closed unless the contract requires retaining it.

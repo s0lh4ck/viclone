@@ -5,6 +5,7 @@ from flask import (
     Flask,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -12,7 +13,7 @@ from flask import (
     url_for,
 )
 
-from vclone import audio, config, db, voice_engine
+from vclone import audio, config, db, rvc_engine, voice_engine
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("VICLONE_SECRET_KEY", "dev-only-change-me")
@@ -56,7 +57,7 @@ def create_case():
 
     if not all([name, client, target_person, authorization_ref]):
         flash(
-            "Todos los campos son obligatorios, incluida la referencia de autorización.",
+            "All fields are required, including the authorization reference.",
             "error",
         )
         return redirect(url_for("index"))
@@ -84,8 +85,18 @@ def case_detail(case_id):
             "SELECT * FROM generated_outputs WHERE case_id = ? ORDER BY created_at DESC",
             (case_id,),
         ).fetchall()
+
+    model_dir = case_dir(case_id, "voice_model")
+    model_status = rvc_engine.training_status(case_id, model_dir)
+    live_running = rvc_engine.live_status(case_id)
+
     return render_template(
-        "case_detail.html", case=case, references=references, outputs=outputs
+        "case_detail.html",
+        case=case,
+        references=references,
+        outputs=outputs,
+        model_status=model_status,
+        live_running=live_running,
     )
 
 
@@ -96,11 +107,11 @@ def upload_reference(case_id):
 
     file = request.files.get("reference_file")
     if not file or file.filename == "":
-        flash("Selecciona un archivo de audio o vídeo.", "error")
+        flash("Select an audio or video file.", "error")
         return redirect(url_for("case_detail", case_id=case_id))
 
     if not allowed_file(file.filename):
-        flash("Formato no soportado.", "error")
+        flash("Unsupported file format.", "error")
         return redirect(url_for("case_detail", case_id=case_id))
 
     raw_dir = case_dir(case_id, "raw")
@@ -113,7 +124,7 @@ def upload_reference(case_id):
     try:
         wav_name = audio.process_reference_upload(raw_path, ref_dir, file.filename)
     except audio.AudioProcessingError as exc:
-        flash(f"Error procesando el archivo: {exc}", "error")
+        flash(f"Error processing the file: {exc}", "error")
         return redirect(url_for("case_detail", case_id=case_id))
     finally:
         if os.path.exists(raw_path):
@@ -126,7 +137,7 @@ def upload_reference(case_id):
             (case_id, file.filename, os.path.join("reference", wav_name)),
         )
 
-    flash("Muestra de voz procesada correctamente.", "success")
+    flash("Voice sample processed successfully.", "success")
     return redirect(url_for("case_detail", case_id=case_id))
 
 
@@ -139,7 +150,7 @@ def generate_speech(case_id):
         ).fetchall()
 
     if not references:
-        flash("Sube al menos una muestra de voz antes de generar audio.", "error")
+        flash("Upload at least one voice sample before generating audio.", "error")
         return redirect(url_for("case_detail", case_id=case_id))
 
     text = request.form.get("text", "").strip()
@@ -148,7 +159,7 @@ def generate_speech(case_id):
     )
 
     if not text:
-        flash("Escribe el texto a sintetizar.", "error")
+        flash("Enter the text to synthesize.", "error")
         return redirect(url_for("case_detail", case_id=case_id))
 
     ref_paths = [
@@ -162,8 +173,8 @@ def generate_speech(case_id):
 
     try:
         voice_engine.synthesize(text, ref_paths, language, out_path)
-    except Exception as exc:  # modelo/torch pueden lanzar excepciones muy variadas
-        flash(f"Error generando el audio: {exc}", "error")
+    except Exception as exc:  # the model/torch stack can raise many exception types
+        flash(f"Error generating audio: {exc}", "error")
         return redirect(url_for("case_detail", case_id=case_id))
 
     with db.get_conn() as conn:
@@ -173,8 +184,89 @@ def generate_speech(case_id):
             (case_id, text, language, os.path.join("generated", out_name)),
         )
 
-    flash("Audio generado.", "success")
+    flash("Audio generated.", "success")
     return redirect(url_for("case_detail", case_id=case_id))
+
+
+@app.route("/cases/<int:case_id>/train", methods=["POST"])
+def train_voice_model(case_id):
+    with db.get_conn() as conn:
+        get_case_or_404(conn, case_id)
+        references = conn.execute(
+            "SELECT * FROM reference_files WHERE case_id = ?", (case_id,)
+        ).fetchall()
+
+    if not references:
+        flash("Upload at least one voice sample before training a model.", "error")
+        return redirect(url_for("case_detail", case_id=case_id))
+
+    ref_dir = case_dir(case_id, "reference")
+    model_dir = case_dir(case_id, "voice_model")
+
+    try:
+        rvc_engine.start_training(case_id, ref_dir, model_dir)
+        flash("Training started. Check the training log for progress.", "success")
+    except RuntimeError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("case_detail", case_id=case_id))
+
+
+@app.route("/cases/<int:case_id>/train/status")
+def train_status(case_id):
+    with db.get_conn() as conn:
+        get_case_or_404(conn, case_id)
+    model_dir = case_dir(case_id, "voice_model")
+    return jsonify({"status": rvc_engine.training_status(case_id, model_dir)})
+
+
+@app.route("/devices")
+def devices():
+    try:
+        inputs, outputs = rvc_engine.list_audio_devices()
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+    return jsonify({"inputs": inputs, "outputs": outputs})
+
+
+@app.route("/cases/<int:case_id>/live/start", methods=["POST"])
+def live_start(case_id):
+    with db.get_conn() as conn:
+        get_case_or_404(conn, case_id)
+
+    model_dir = case_dir(case_id, "voice_model")
+    if rvc_engine.training_status(case_id, model_dir) != "ready":
+        return jsonify({"error": "No trained voice model for this case yet."}), 400
+
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        input_device = int(data.get("input_device"))
+        output_device = int(data.get("output_device"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Select an input and output device."}), 400
+    pitch = float(data.get("pitch", 0.0) or 0.0)
+
+    try:
+        rvc_engine.start_live_conversion(case_id, model_dir, input_device, output_device, pitch)
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"running": True})
+
+
+@app.route("/cases/<int:case_id>/live/stop", methods=["POST"])
+def live_stop(case_id):
+    with db.get_conn() as conn:
+        get_case_or_404(conn, case_id)
+    rvc_engine.stop_live_conversion(case_id)
+    return jsonify({"running": False})
+
+
+@app.route("/cases/<int:case_id>/live/status")
+def live_status_route(case_id):
+    with db.get_conn() as conn:
+        get_case_or_404(conn, case_id)
+    return jsonify({"running": rvc_engine.live_status(case_id)})
 
 
 @app.route("/storage/<int:case_id>/<path:relative_path>")
