@@ -8,7 +8,9 @@
 </head>
 <body>
   <header>
-    <h1><a href="{{ url_for('index') }}">ViClone</a></h1>
+    <a href="{{ url_for('index') }}" class="brand">
+      <img src="{{ url_for('static', filename='logo.svg') }}" alt="ViClone" class="brand-logo">
+    </a>
     <p class="subtitle">Internal voice cloning tool for authorized vishing exercises</p>
     {% if session.get("authenticated") %}
       <form method="post" action="{{ url_for('logout') }}" class="logout-form">
