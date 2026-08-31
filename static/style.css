@@ -26,6 +26,15 @@ header a {
   text-decoration: none;
 }
 
+.brand {
+  display: inline-block;
+}
+
+.brand-logo {
+  height: 44px;
+  display: block;
+}
+
 .subtitle {
   color: var(--muted);
   margin: 0.25rem 0 0;
